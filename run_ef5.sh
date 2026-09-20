@@ -1,29 +1,32 @@
 #!/usr/bin/env bash
 # ============================================================================
-# run_ef5.sh — Run EF5 (Docker) for the EF5_ComorosTraining workspace
+# run_ef5.sh : exécuter EF5 (Docker) dans l'espace de travail EF5_ComorosTraining
 # ============================================================================
-# The EF5 Docker container accesses the workspace folders via bind mounts:
+# Le conteneur Docker EF5 accède aux dossiers de l'espace de travail par des
+# montages bind :
 #
-#   ./data    -> /data    (model inputs: basic, parameters, pet, states, precip)
-#   ./output  -> /output  (EF5 results: maxq/maxunitq/ts*.tif, timeseries csv)
-#   ./conf    -> /conf    (EF5 control file, mounted read-only)
+#   ./data    -> /data    (entrées du modèle : basic, parameters, pet, states, precip)
+#   ./output  -> /output  (résultats EF5 : maxq/maxunitq/ts*.tif, séries csv)
+#   ./conf    -> /conf    (fichier de contrôle EF5, monté en lecture seule)
 #
-# Paths inside conf/control_30m.txt are relative to the container root (/), e.g.
+# Les chemins de conf/control_30m.txt sont relatifs à la racine du conteneur (/),
+# par exemple :
 #   DEM=data/basic/DEM_comoros_30m.tif
 #   OUTPUT=output/30m
 #   STATES=data/states/30m/
 #
-# Platforms:
-#   Linux          -> optimized docker run (host networking, full resources)
-#   macOS          -> docker compose (Docker Desktop has no host networking)
-#   Windows        -> use run_ef5.cmd or `docker compose run --rm ef5`
+# Systèmes :
+#   Linux          -> docker run optimisé (réseau de l'hôte, ressources complètes)
+#   macOS          -> docker compose (Docker Desktop n'a pas le réseau de l'hôte)
+#   Windows        -> utiliser run_ef5.cmd ou `docker compose run --rm ef5`
 #
-# Usage:
-#   ./run_ef5.sh                          # run with conf/control_30m.txt
-#   ./run_ef5.sh conf/control_30m.txt     # same, explicit control file
-#   ./run_ef5.sh --bash                   # interactive shell (inspect data)
+# Utilisation :
+#   ./run_ef5.sh                          # exécution avec conf/control_30m.txt
+#   ./run_ef5.sh conf/control_30m.txt     # identique, fichier de contrôle explicite
+#   ./run_ef5.sh --bash                   # terminal interactif (inspecter les données)
 #
-# The image is ensured via docker/build_ef5.sh (reuse existing / load / build).
+# L'image est préparée par docker/build_ef5.sh (réutilisation, chargement ou
+# construction).
 # ============================================================================
 set -euo pipefail
 
@@ -33,20 +36,20 @@ cd "$SCRIPT_DIR"
 IMAGE_NAME="${EF5_IMAGE:-ef5-container:latest}"
 CONTROL_FILE="${1:-conf/control_30m.txt}"
 
-# --- Detect OS ---------------------------------------------------------------
+# --- Détection du système ----------------------------------------------------
 OS="$(uname -s)"
 case "$OS" in
     Darwin) PLATFORM="macos" ;;
     MINGW*|MSYS*|CYGWIN*)
-        echo "Windows detected — use the CMD launcher instead:" >&2
+        echo "Windows détecté. Utilisez plutôt le lanceur CMD :" >&2
         echo "    run_ef5.cmd -Control control_30m.txt" >&2
-        echo "  or directly: docker compose run --rm ef5" >&2
+        echo "  ou directement : docker compose run --rm ef5" >&2
         exit 1
         ;;
     *) PLATFORM="linux" ;;
 esac
 
-# --- Detect system resources ------------------------------------------------
+# --- Détection des ressources de la machine ----------------------------------
 if [[ "$PLATFORM" == "macos" ]]; then
     TOTAL_CPUS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 else
@@ -55,22 +58,22 @@ fi
 SHM_SIZE="32g"
 NOFILE_LIMIT="1048576"
 
-# --- Make sure the image is available (reuse / load / build) -----------------
+# --- S'assurer que l'image est disponible (réutiliser / charger / construire) -
 if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
-    echo ">>> Image ${IMAGE_NAME} not found — preparing it..."
+    echo ">>> Image ${IMAGE_NAME} introuvable. Préparation en cours..."
     bash "${SCRIPT_DIR}/docker/build_ef5.sh"
 fi
 
-# --- Interactive shell mode ---------------------------------------------------
+# --- Mode terminal interactif -------------------------------------------------
 if [[ "${1:-}" == "--bash" ]] || [[ "${1:-}" == "-b" ]]; then
     if [[ "$PLATFORM" == "macos" ]]; then
-        echo "Starting interactive shell in EF5 container (docker compose)..."
+        echo "Ouverture d'un terminal interactif dans le conteneur EF5 (docker compose)..."
         exec docker compose run --rm ef5 /bin/sh
     fi
-    echo "Starting interactive shell in EF5 container..."
-    echo "  /data    -> ${SCRIPT_DIR}/data    (inputs)"
-    echo "  /output  -> ${SCRIPT_DIR}/output  (results)"
-    echo "  /conf    -> ${SCRIPT_DIR}/conf    (control files)"
+    echo "Ouverture d'un terminal interactif dans le conteneur EF5..."
+    echo "  /data    -> ${SCRIPT_DIR}/data    (entrées)"
+    echo "  /output  -> ${SCRIPT_DIR}/output  (résultats)"
+    echo "  /conf    -> ${SCRIPT_DIR}/conf    (fichiers de contrôle)"
     exec docker run -it --rm \
         --network host --ipc host \
         --shm-size="${SHM_SIZE}" \
@@ -88,42 +91,42 @@ if [[ "${1:-}" == "--bash" ]] || [[ "${1:-}" == "-b" ]]; then
         /bin/sh
 fi
 
-# --- Validate control file ----------------------------------------------------
-# The control file must live inside ./conf so it is visible at /conf/<rel>.
+# --- Vérification du fichier de contrôle --------------------------------------
+# Le fichier de contrôle doit se trouver dans ./conf pour être visible en /conf/<rel>.
 CONF_DIR="${SCRIPT_DIR}/conf"
 CONTROL_ABS="$(cd "$(dirname "$CONTROL_FILE")" && pwd)/$(basename "$CONTROL_FILE")"
 if [[ ! -f "$CONTROL_ABS" ]]; then
-    echo "ERROR: control file not found: ${CONTROL_ABS}" >&2
+    echo "ERREUR : fichier de contrôle introuvable : ${CONTROL_ABS}" >&2
     exit 1
 fi
 case "$CONTROL_ABS" in
     "${CONF_DIR}"/*) ;;
     *)
-        echo "ERROR: control file must be inside ${CONF_DIR}/" >&2
-        echo "  Got: ${CONTROL_ABS}" >&2
+        echo "ERREUR : le fichier de contrôle doit se trouver dans ${CONF_DIR}/" >&2
+        echo "  Reçu : ${CONTROL_ABS}" >&2
         exit 1
         ;;
 esac
 CONTROL_IN_CONF="${CONTROL_ABS#"$CONF_DIR"/}"
 
 echo "=============================================="
-echo "  EF5 Docker — run (${PLATFORM})"
+echo "  EF5 Docker, exécution (${PLATFORM})"
 echo "=============================================="
-echo "  Image   : ${IMAGE_NAME}"
-echo "  Control : ${CONTROL_ABS}"
-echo "  Data    : ${SCRIPT_DIR}/data   -> /data"
-echo "  Output  : ${SCRIPT_DIR}/output -> /output"
-echo "  Conf    : ${SCRIPT_DIR}/conf   -> /conf"
-echo "  OMP     : ${TOTAL_CPUS} threads"
+echo "  Image    : ${IMAGE_NAME}"
+echo "  Contrôle : ${CONTROL_ABS}"
+echo "  Données  : ${SCRIPT_DIR}/data   -> /data"
+echo "  Sorties  : ${SCRIPT_DIR}/output -> /output"
+echo "  Conf     : ${SCRIPT_DIR}/conf   -> /conf"
+echo "  OMP      : ${TOTAL_CPUS} fils d'exécution"
 echo "=============================================="
 
-# Docker Desktop (macOS) has no host networking — run via docker compose.
+# Docker Desktop (macOS) n'a pas le réseau de l'hôte : passage par docker compose.
 if [[ "$PLATFORM" == "macos" ]]; then
     docker compose run --rm \
         -e "OMP_NUM_THREADS=${TOTAL_CPUS}" \
         ef5 /ef5/bin/ef5 "/conf/${CONTROL_IN_CONF}"
     echo ""
-    echo "EF5 run finished. Results are in ${SCRIPT_DIR}/output/"
+    echo "Exécution d'EF5 terminée. Les résultats sont dans ${SCRIPT_DIR}/output/"
     exit 0
 fi
 
@@ -146,4 +149,4 @@ docker run --rm \
     /ef5/bin/ef5 "/conf/${CONTROL_IN_CONF}"
 
 echo ""
-echo "EF5 run finished. Results are in ${SCRIPT_DIR}/output/"
+echo "Exécution d'EF5 terminée. Les résultats sont dans ${SCRIPT_DIR}/output/"

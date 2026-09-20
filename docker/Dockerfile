@@ -1,17 +1,18 @@
 ################################################################################
-# EF5: Ensemble Framework for Flash Flood Forecasting — Docker image
-# Standalone image for the EF5_ComorosTraining workspace.
+# EF5 : Ensemble Framework for Flash Flood Forecasting, image Docker
+# Image autonome pour l'espace de travail EF5_ComorosTraining.
 #
-# This is the same Alpine build used by TITO. It compiles EF5 from the AHWALab
-# fork on GitHub and produces the
-# `ef5-container:latest` image. The container does NOT contain model data — all
-# inputs/outputs are bind-mounted at runtime (see run_ef5.sh / README.md).
+# C'est la même construction Alpine que celle utilisée par TITO. Elle compile
+# EF5 depuis le fork AHWALab hébergé sur GitHub et produit l'image
+# `ef5-container:latest`. Le conteneur ne contient AUCUNE donnée de modèle :
+# toutes les entrées et sorties sont montées au moment de l'exécution
+# (voir run_ef5.sh et README.md).
 #
-# Build (needs internet to clone EF5):
+# Construction (internet requis pour cloner EF5) :
 #   ./docker/build_ef5.sh --rebuild
 #
-# Reuse without compiling: the prebuilt archive docker/ef5-container.tar can be
-# loaded with `./docker/build_ef5.sh --load` (no internet needed).
+# Réutilisation sans recompiler : l'archive docker/ef5-container.tar peut être
+# chargée avec `./docker/build_ef5.sh --load`, sans connexion internet.
 ################################################################################
 
 ARG DOCKER_BASE_OS="alpine:3.17"
@@ -19,29 +20,30 @@ ARG DOCKER_BASE_OS="alpine:3.17"
 FROM ${DOCKER_BASE_OS} AS ef5-image
 LABEL nssl.wrdd.image.authors="jorge.duarte@noaa.gov"
 
-# Bind-mount volumes (runtime): /data (inputs), /output (results), /conf (control)
+# Volumes montés à l'exécution : /data (entrées), /output (résultats), /conf (contrôle)
 VOLUME [ "/data" ]
 VOLUME [ "/output" ]
 VOLUME [ "/conf" ]
 
-# Update the package index
+# Mettre à jour l'index des paquets
 RUN apk update
 
-# Install build tools and EF5 dependencies
+# Installer les outils de compilation et les dépendances d'EF5
 RUN apk add --no-cache git automake autoconf build-base libgeotiff-dev
 
-# Clone EF5 from GitHub onto the ef5 folder in the image root
-# Using the AHWALab fork (master branch) with latest features and fixes
+# Cloner EF5 depuis GitHub dans le dossier ef5, à la racine de l'image.
+# On utilise le fork AHWALab (branche master), qui contient les dernières
+# fonctionnalités et corrections.
 WORKDIR /
 RUN git clone https://github.com/AHWALab/EF5.git ./ef5
 
-# Set the ef5 folder as the working directory
+# Définir le dossier ef5 comme répertoire de travail
 WORKDIR /ef5
 
-# Compile and install EF5 with OpenMP support and optimizations
+# Compiler et installer EF5 avec le support OpenMP et les optimisations
 RUN autoreconf --force --install
 RUN ./configure
 RUN make -j"$(nproc)" CXXFLAGS="-O3 -fopenmp"
 
-# Run EF5 with the control file mounted from ./conf
+# Exécuter EF5 avec le fichier de contrôle monté depuis ./conf
 CMD ["/ef5/bin/ef5", "/conf/control.txt"]

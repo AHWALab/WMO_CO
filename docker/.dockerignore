@@ -1,5 +1,5 @@
-# Build context for docker/build_ef5.sh is the docker/ folder itself,
-# so these paths are relative to docker/. The Dockerfile only needs to
-# clone EF5 from GitHub — no local files are required.
+# Le contexte de construction de docker/build_ef5.sh est le dossier docker/
+# lui-meme : ces chemins sont donc relatifs a docker/. Le Dockerfile se
+# contente de cloner EF5 depuis GitHub, aucun fichier local n'est necessaire.
 ef5-container.tar
 *.partial

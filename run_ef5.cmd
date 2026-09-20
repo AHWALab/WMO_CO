@@ -1,10 +1,11 @@
 @echo off
 REM ============================================================================
-REM run_ef5.cmd — pure Windows CMD (no PowerShell)
+REM run_ef5.cmd : Windows CMD pur (sans PowerShell)
 REM ============================================================================
-REM Avoids PowerShell execution-policy / Group Policy blocks entirely.
+REM Evite completement les blocages lies a la strategie d'execution PowerShell
+REM et aux strategies de groupe.
 REM
-REM Usage (from repo root):
+REM Utilisation (depuis la racine du dossier) :
 REM   run_ef5.cmd
 REM   run_ef5.cmd -Control control_30m.txt
 REM   run_ef5.cmd -Bash
@@ -25,7 +26,7 @@ set "DO_BASH=0"
 if "%~1"=="" goto parsed
 if /I "%~1"=="-Control" (
   if "%~2"=="" (
-    echo ERROR: -Control requires a file name
+    echo ERREUR : -Control demande un nom de fichier
     exit /b 1
   )
   set "CONTROL=%~2"
@@ -33,7 +34,7 @@ if /I "%~1"=="-Control" (
 )
 if /I "%~1"=="--control" (
   if "%~2"=="" (
-    echo ERROR: --control requires a file name
+    echo ERREUR : --control demande un nom de fichier
     exit /b 1
   )
   set "CONTROL=%~2"
@@ -45,30 +46,31 @@ if /I "%~1"=="-b" set "DO_BASH=1" & shift & goto parse
 if /I "%~1"=="-h" goto usage
 if /I "%~1"=="--help" goto usage
 if /I "%~1"=="/?" goto usage
-REM allow bare control name as first arg: run_ef5.cmd control_30m.txt
+REM accepte un nom de fichier de controle en premier argument :
+REM   run_ef5.cmd control_30m.txt
 if not "%~1"=="" if "%CONTROL%"=="control_30m.txt" if "%DO_BASH%"=="0" (
   set "CONTROL=%~1"
   shift & goto parse
 )
-echo Unknown option: %~1
+echo Option inconnue : %~1
 goto usage
 
 :parsed
 where docker >nul 2>&1
 if errorlevel 1 (
-  echo ERROR: docker not found in PATH. Install Docker Desktop first.
+  echo ERREUR : docker est introuvable dans le PATH. Installez d'abord Docker Desktop.
   exit /b 1
 )
 docker info >nul 2>&1
 if errorlevel 1 (
-  echo ERROR: cannot talk to the Docker daemon. Is Docker Desktop running?
+  echo ERREUR : impossible de joindre le demon Docker. Docker Desktop est-il demarre ?
   exit /b 1
 )
 
-REM Ensure image exists (reuse / load / build via pure CMD)
+REM S'assurer que l'image existe (reutiliser / charger / construire, en CMD pur)
 docker image inspect "%IMAGE%" >nul 2>&1
 if errorlevel 1 (
-  echo Image %IMAGE% not found - preparing it...
+  echo Image %IMAGE% introuvable. Preparation en cours...
   call "%ROOT%\docker\build_ef5.cmd"
   if errorlevel 1 exit /b 1
 )
@@ -78,7 +80,7 @@ if not defined OMP_NUM_THREADS (
 )
 
 if "%DO_BASH%"=="1" (
-  echo Starting interactive shell in EF5 container...
+  echo Ouverture d'un terminal interactif dans le conteneur EF5...
   echo   /data   -^> %ROOT%\data
   echo   /output -^> %ROOT%\output
   echo   /conf   -^> %ROOT%\conf
@@ -86,37 +88,37 @@ if "%DO_BASH%"=="1" (
   exit /b %ERRORLEVEL%
 )
 
-REM Strip optional conf\ or conf/ prefix
+REM Retire le prefixe conf\ ou conf/ s'il est present
 set "CTRL=%CONTROL%"
 if /I "%CTRL:~0,5%"=="conf\" set "CTRL=%CTRL:~5%"
 if /I "%CTRL:~0,5%"=="conf/" set "CTRL=%CTRL:~5%"
 
 if not exist "%ROOT%\conf\%CTRL%" (
-  echo ERROR: control file not found: %ROOT%\conf\%CTRL%
-  echo   Must live inside conf\
+  echo ERREUR : fichier de controle introuvable : %ROOT%\conf\%CTRL%
+  echo   Il doit se trouver dans conf\
   exit /b 1
 )
 
 echo ==============================================
-echo   EF5 Docker - run (Windows CMD)
+echo   EF5 Docker, execution (Windows CMD)
 echo ==============================================
-echo   Image   : %IMAGE%
-echo   Control : %ROOT%\conf\%CTRL%
-echo   Data    : %ROOT%\data    -^> /data
-echo   Output  : %ROOT%\output  -^> /output
-echo   Conf    : %ROOT%\conf    -^> /conf
-echo   OMP     : %OMP_NUM_THREADS% threads
+echo   Image    : %IMAGE%
+echo   Controle : %ROOT%\conf\%CTRL%
+echo   Donnees  : %ROOT%\data    -^> /data
+echo   Sorties  : %ROOT%\output  -^> /output
+echo   Conf     : %ROOT%\conf    -^> /conf
+echo   OMP      : %OMP_NUM_THREADS% fils d'execution
 echo ==============================================
 
 docker compose run --rm -e "OMP_NUM_THREADS=%OMP_NUM_THREADS%" ef5 /ef5/bin/ef5 "/conf/%CTRL%"
 if errorlevel 1 exit /b 1
 
 echo.
-echo EF5 run finished. Results are in %ROOT%\output\
+echo Execution d'EF5 terminee. Les resultats sont dans %ROOT%\output\
 exit /b 0
 
 :usage
-echo Usage:
+echo Utilisation :
 echo   run_ef5.cmd
 echo   run_ef5.cmd -Control control_30m.txt
 echo   run_ef5.cmd -Bash

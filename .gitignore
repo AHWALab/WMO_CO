@@ -1,4 +1,4 @@
-# EF5 runtime outputs (regenerate on every run; keep folder tree)
+# Sorties produites par EF5 (regenerees a chaque execution ; l'arborescence est conservee)
 output/**/*
 !output/**/
 !output/**/.gitkeep

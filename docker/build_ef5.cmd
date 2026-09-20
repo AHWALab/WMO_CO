@@ -1,10 +1,11 @@
 @echo off
 REM ============================================================================
-REM build_ef5.cmd — pure Windows CMD (no PowerShell)
+REM build_ef5.cmd : Windows CMD pur (sans PowerShell)
 REM ============================================================================
-REM Avoids PowerShell execution-policy / Group Policy blocks entirely.
+REM Evite completement les blocages lies a la strategie d'execution PowerShell
+REM et aux strategies de groupe.
 REM
-REM Usage (from repo root or docker\):
+REM Utilisation (depuis la racine du dossier ou depuis docker\) :
 REM   docker\build_ef5.cmd
 REM   docker\build_ef5.cmd -Status
 REM   docker\build_ef5.cmd -Load
@@ -44,23 +45,23 @@ if /I "%~1"=="--save"   set "DO_SAVE=1" & shift & goto parse
 if /I "%~1"=="-h" goto usage
 if /I "%~1"=="--help" goto usage
 if /I "%~1"=="/?" goto usage
-echo Unknown option: %~1
+echo Option inconnue : %~1
 goto usage
 
 :parsed
 where docker >nul 2>&1
 if errorlevel 1 (
-  echo ERROR: docker not found in PATH. Install Docker Desktop first.
+  echo ERREUR : docker est introuvable dans le PATH. Installez d'abord Docker Desktop.
   exit /b 1
 )
 docker info >nul 2>&1
 if errorlevel 1 (
-  echo ERROR: cannot talk to the Docker daemon. Is Docker Desktop running?
+  echo ERREUR : impossible de joindre le demon Docker. Docker Desktop est-il demarre ?
   exit /b 1
 )
 
 echo ==============================================
-echo   EF5 Docker image - build / reuse (Windows CMD)
+echo   Image Docker EF5, construction ou reutilisation (Windows CMD)
 echo ==============================================
 echo   Image   : %IMAGE%
 echo   Archive : %ARCHIVE%
@@ -70,75 +71,75 @@ if "%DO_STATUS%"=="1" goto status
 if "%DO_LOAD%"=="1" goto load
 if "%DO_REBUILD%"=="1" goto rebuild
 
-REM default: reuse / load / build
+REM par defaut : reutiliser / charger / construire
 docker image inspect "%IMAGE%" >nul 2>&1
 if not errorlevel 1 (
-  echo ^>^>^> Reusing existing image %IMAGE%
-  echo     For a fresh build: docker\build_ef5.cmd -Rebuild
+  echo ^>^>^> Reutilisation de l'image %IMAGE%
+  echo     Pour une construction neuve : docker\build_ef5.cmd -Rebuild
   goto maybe_save
 )
 if exist "%ARCHIVE%" (
-  echo ^>^>^> Image not loaded locally - loading prebuilt archive.
+  echo ^>^>^> Image absente de la machine. Chargement de l'archive.
   goto do_load
 )
-echo ^>^>^> No image and no archive - building from Dockerfile.
+echo ^>^>^> Ni image ni archive. Construction depuis le Dockerfile.
 goto do_build
 
 :status
 docker image inspect "%IMAGE%" >nul 2>&1
 if not errorlevel 1 (
-  echo   ef5-container image: PRESENT locally ^(%IMAGE%^)
+  echo   Image ef5-container : PRESENTE sur la machine ^(%IMAGE%^)
   exit /b 0
 )
 if exist "%ARCHIVE%" (
-  echo   ef5-container image: NOT loaded - archive present.
-  echo   Load it with: docker\build_ef5.cmd -Load
+  echo   Image ef5-container : NON chargee. Archive presente.
+  echo   Chargez-la avec : docker\build_ef5.cmd -Load
   exit /b 0
 )
-echo   ef5-container image: NOT present, no archive. Rebuild with -Rebuild.
+echo   Image ef5-container : absente, et aucune archive. Construisez avec -Rebuild.
 exit /b 0
 
 :load
 if not exist "%ARCHIVE%" (
-  echo ERROR: archive not found: %ARCHIVE%
-  echo   Build first: docker\build_ef5.cmd -Rebuild -Save
+  echo ERREUR : archive introuvable : %ARCHIVE%
+  echo   Construisez d'abord : docker\build_ef5.cmd -Rebuild -Save
   exit /b 1
 )
 goto do_load
 
 :do_load
-echo ^>^>^> Loading image from %ARCHIVE%
+echo ^>^>^> Chargement de l'image depuis %ARCHIVE%
 docker load -i "%ARCHIVE%"
 if errorlevel 1 exit /b 1
-echo ^>^>^> Image loaded.
+echo ^>^>^> Image chargee.
 exit /b 0
 
 :rebuild
-echo ^>^>^> Building %IMAGE% from Dockerfile (compiles EF5 from source^)...
-echo     Needs internet (clones AHWALab/EF5^) and takes a few minutes.
+echo ^>^>^> Construction de %IMAGE% depuis le Dockerfile (compilation d'EF5^)...
+echo     Internet requis (clone AHWALab/EF5^). Compter quelques minutes.
 goto do_build
 
 :do_build
 docker build %NO_CACHE% -t "%IMAGE%" "%SCRIPT_DIR%"
 if errorlevel 1 exit /b 1
-echo ^>^>^> Build complete.
+echo ^>^>^> Construction terminee.
 goto maybe_save
 
 :maybe_save
 if not "%DO_SAVE%"=="1" goto done
-echo ^>^>^> Saving %IMAGE% -^> %ARCHIVE%
+echo ^>^>^> Enregistrement de %IMAGE% -^> %ARCHIVE%
 docker save "%IMAGE%" -o "%ARCHIVE%"
 if errorlevel 1 exit /b 1
-for %%A in ("%ARCHIVE%") do echo     %%~fA  %%~zA bytes
+for %%A in ("%ARCHIVE%") do echo     %%~fA  %%~zA octets
 goto done
 
 :done
 echo.
-echo   Done. Image: %IMAGE%
-echo   Run EF5 with:  run_ef5.cmd -Control control_30m.txt
-echo   Status check:  docker\build_ef5.cmd -Status
+echo   Termine. Image : %IMAGE%
+echo   Executer EF5 :    run_ef5.cmd -Control control_30m.txt
+echo   Verifier l'etat : docker\build_ef5.cmd -Status
 exit /b 0
 
 :usage
-echo Usage: build_ef5.cmd [-Status^|-Load^|-Rebuild^|-NoCache^|-Save]
+echo Utilisation : build_ef5.cmd [-Status^|-Load^|-Rebuild^|-NoCache^|-Save]
 exit /b 1
